@@ -150,7 +150,7 @@ public class PixBiBluetoothClient extends Activity {
  
           if (D)
                Log.e(TAG, "- ON PAUSE -");
- 
+ /*
           if (outStream != null) {
                try {
                     outStream.flush();
@@ -163,7 +163,7 @@ public class PixBiBluetoothClient extends Activity {
                btSocket.close();
           } catch (IOException e2) {
                Log.e(TAG, "ON PAUSE: Unable to close socket.", e2);
-          }
+          }*/
      }
  
      @Override
