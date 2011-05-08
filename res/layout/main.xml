@@ -1,12 +1,61 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
     android:layout_width="fill_parent"
-    android:layout_height="fill_parent"
+    android:layout_height="fill_parent" android:baselineAligned="true" android:orientation="vertical"    
     >
-<TextView  
-    android:layout_width="fill_parent" 
-    android:layout_height="wrap_content" 
-    android:text="@string/hello"
-    />
+    <TextView 
+    android:paddingTop="20px"
+    android:text="@string/readMsg"
+    android:id="@+id/readMsg" 
+    android:layout_width="wrap_content" 
+    android:layout_height="wrap_content"
+    android:typeface="monospace"
+    android:textColor="#c9c9c9"
+    android:textSize="30sp"
+    ></TextView>
+    <ScrollView 
+    android:layout_height="400px" 
+    android:layout_width="match_parent"
+    android:background="#555555"   
+    >
+	    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent">
+	       <TextView
+	        android:layout_width="match_parent" 
+	        android:layout_height="wrap_content" 
+	        android:id="@+id/rMsgBox" 
+	        android:text="rMsgBox"
+	        android:textColor="#ffffff"
+	        android:typeface="sans" 
+	        android:textSize="12px"
+	        ></TextView>
+	    </LinearLayout>
+    </ScrollView>
+    <TableLayout 
+    android:paddingTop="20px"
+    android:layout_height="wrap_content"
+    android:layout_width="match_parent"
+    android:id="@+id/tableLayout1"
+
+    >
+     	<TableRow>
+     	    <Button
+     	    android:layout_column="1"
+     	    android:text="@string/title_reconnBtn" 
+    		android:id="@+id/reconnBtn" 
+    		android:layout_width="wrap_content" 
+    		android:layout_height="wrap_content"
+    		></Button>
+
+			<Button
+			 android:id="@+id/disconnBtn"
+			 android:layout_width="wrap_content" 
+			 android:layout_height="wrap_content" 
+			 android:layout_gravity="fill_vertical" 
+			 android:text="@string/title_disconnBtn"
+			></Button>
+      	</TableRow>
+    </TableLayout>
+
+    
+    
 </LinearLayout>

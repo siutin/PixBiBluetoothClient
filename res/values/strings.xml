@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="hello">Hello World, thinbtclient!</string>
-    <string name="app_name">thinbtclient</string>
+    <string name="readMsg">Read Message :</string>
+    <string name="app_name">PixBi Bluetooth Client</string>
+    <string name="title_reconnBtn">reconnect</string>
+    <string name="title_disconnBtn">disconnect</string>
 </resources>
