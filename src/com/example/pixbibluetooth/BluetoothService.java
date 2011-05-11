@@ -266,13 +266,13 @@ public class BluetoothService {
     	public void run(){
             Log.i(TAG, "BEGIN mbufferThread");
             setName("bufferThread");
-			matcher = pattern.matcher("T: 30.7 RH: 78.5 LI: 184 $T: 30.7 RH: 78.4 LI: 182 $T: 30.6 RH: 78.4 LI: 189 $T: 30.6 RH: 78.4 LI: 181 $T: 30.7 RH: 78.5 LI: 189 $T: 30.7 RH: 78.4 LI: 183 $");
+			/*matcher = pattern.matcher("T: 30.7 RH: 78.5 LI: 184 $T: 30.7 RH: 78.4 LI: 182 $T: 30.6 RH: 78.4 LI: 189 $T: 30.6 RH: 78.4 LI: 181 $T: 30.7 RH: 78.5 LI: 189 $T: 30.7 RH: 78.4 LI: 183 $");
 			Log.i(TAG, "matches :"+ matcher.matches());
 			Log.i(TAG, "groupcount :"+ matcher.groupCount());
 			Log.i(TAG, "find :"+ matcher.find()+":"+matcher.group(1));
 			Log.i(TAG, "find :"+ matcher.find()+":"+matcher.group(3));
 			Log.i(TAG, "groupcount :"+ matcher.groupCount());
-            byte[] buffer = new byte[1024];
+*/            byte[] buffer = new byte[1024];
     		String buf="";
     		int bytes;
     		
@@ -289,17 +289,19 @@ public class BluetoothService {
 							if(matcher.find()){
 								if(matcher.groupCount() == 3){
 										
-									//res=String.format(patternstr,matcher.group(1),matcher.group(2),matcher.group(3));
-									res="Temperature: "+matcher.group(1)+" C Relative Humidity: "+matcher.group(2)+" % Light Intensity: "+matcher.group(3);
-									
+									/*res="Temperature: "+matcher.group(1)+" C Relative Humidity: "+matcher.group(2)+" % Light Intensity: "+matcher.group(3);
 									inStream = new ByteArrayInputStream(res.getBytes()); 
-									bytes = inStream.read(buffer);
-									
-									mHandler.obtainMessage(PixBiBluetoothClient.MESSAGE_READ, bytes, -1, buffer).sendToTarget();
-	
-				                    String readMessage = new String(buffer,0,bytes);			                  			                 
-				                    
-				                    Log.i(TAG, "match read message: "+ readMessage );
+									bytes = inStream.read(buffer);									
+									mHandler.obtainMessage(PixBiBluetoothClient.MESSAGE_READ, bytes, -1, buffer).sendToTarget();																
+				                    String readMessage = new String(buffer,0,bytes);			                  			                 				                    
+				                    Log.i(TAG, "match read message: "+ readMessage );*/
+									Log.i(TAG, "match read message: "+ sb );
+									String[] strArray = new String[3];
+									strArray[0] = matcher.group(1);
+									strArray[1] = matcher.group(2);
+									strArray[2] = matcher.group(3);
+									mHandler.obtainMessage(PixBiBluetoothClient.MESSAGE_SENSOR_DATA, strArray).sendToTarget();
+
 				                    sb = new StringBuilder();
 				                    
 								}
@@ -308,9 +310,9 @@ public class BluetoothService {
 					} catch (InterruptedException e) {						
 						Log.e(TAG, "Erro Interrupt Eception", e);
 					}
-					catch (IOException e) {
+					/*catch (IOException e) {
 						Log.e(TAG, "Exception get result bytes", e);
-					}
+					}*/
     		}
     	}
     	

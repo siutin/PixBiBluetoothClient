@@ -2,6 +2,7 @@ package com.example.pixbibluetooth;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.LinkedList;
 import java.util.UUID;
 
 import com.example.thinbtclient.R;
@@ -18,7 +19,17 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import android.graphics.Color;
 import android.view.View.OnClickListener; 
+
+import com.androidplot.Plot;
+import com.androidplot.xy.SimpleXYSeries;
+import com.androidplot.series.XYSeries;
+import com.androidplot.xy.*;
+
+import java.text.DecimalFormat;
+import java.util.Arrays;
 
 public class PixBiBluetoothClient extends Activity {
      
@@ -31,12 +42,23 @@ public class PixBiBluetoothClient extends Activity {
      private Button mDisConnBtn = null;
      
      
+     //XYPlot
+     private XYPlot mySimpleXYPlot;
+     private static final int HISTORY_SIZE = 30;            // number of points to plot in history
+     private static SimpleXYSeries seriesTemper;
+     private static SimpleXYSeries seriesRelHumi;
+     private static SimpleXYSeries seriesLight;
+     private LinkedList<Number> RelHumiRecord;
+     private LinkedList<Number> TemperRecord;
+     private LinkedList<Number> LightRecord;
+     
      // Message types sent from the BluetoothService Handler
      public static final int MESSAGE_STATE_CHANGE = 1;
      public static final int MESSAGE_READ = 2;
      public static final int MESSAGE_WRITE = 3;
      public static final int MESSAGE_DEVICE_NAME = 4;
      public static final int MESSAGE_TOAST = 5;
+     public static final int MESSAGE_SENSOR_DATA = 6;
      
      // Key names received from the BluetoothChatService Handler
      public static final String DEVICE_NAME = "device_name";
@@ -54,18 +76,49 @@ public class PixBiBluetoothClient extends Activity {
  
      // ==> hardcode your server's MAC address here <==
      private static String address = "00:10:06:29:00:86";
- 
+
+     {
+	    RelHumiRecord = new LinkedList<Number>();
+	    TemperRecord = new LinkedList<Number>();
+	    LightRecord = new LinkedList<Number>();
+     
+	     seriesTemper = new SimpleXYSeries("Temperature"); 
+	     seriesRelHumi = new SimpleXYSeries("Relative Humidity");
+	     seriesLight = new SimpleXYSeries("Light Intensity");
+     }
      /** Called when the activity is first created. */
      @Override
      public void onCreate(Bundle savedInstanceState) {
           super.onCreate(savedInstanceState);
           setContentView(R.layout.main);
-          
+                    
           rMsgBox = (TextView)findViewById(R.id.rMsgBox);
           rMsgBox.setText("Hello world!\n");
           if (D)
                Log.e(TAG, "+++ ON CREATE +++");
- 
+
+       // Initialize our XYPlot reference:
+          mySimpleXYPlot = (XYPlot) findViewById(R.id.mySimpleXYPlot);
+   
+          // Create two arrays of y-values to plot:
+          //Number[] series1Numbers = {1, 8, 5, 2, 7, 4};
+          //Number[] series2Numbers = {4, 6, 3, 8, 2, 10};
+                        
+          mySimpleXYPlot.addSeries(seriesTemper, LineAndPointRenderer.class, new LineAndPointFormatter(Color.rgb(100, 100, 200), Color.BLACK, null));
+          mySimpleXYPlot.addSeries(seriesRelHumi, LineAndPointRenderer.class, new LineAndPointFormatter(Color.rgb(100, 200, 100), Color.BLACK, null));
+          mySimpleXYPlot.addSeries(seriesLight, LineAndPointRenderer.class, new LineAndPointFormatter(Color.rgb(200, 100, 100), Color.BLACK, null));
+          mySimpleXYPlot.setDomainStepValue(5);
+          mySimpleXYPlot.setTicksPerRangeLabel(3);
+
+          mySimpleXYPlot.setBorderStyle(Plot.BorderStyle.SQUARE, null,null);
+          // customize our domain/range labels
+          mySimpleXYPlot.setDomainLabel("Time (Secs)");
+          mySimpleXYPlot.getDomainLabelWidget().pack();
+          mySimpleXYPlot.setRangeLabel("Temerature(C)/Relative Humidity (%)");
+          mySimpleXYPlot.getRangeLabelWidget().pack();
+          
+          mySimpleXYPlot.disableAllMarkup();
+                                  
           mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
           if (mBluetoothAdapter == null) {
                Toast.makeText(this,"Bluetooth is not available.",  Toast.LENGTH_LONG).show();
@@ -134,7 +187,7 @@ public class PixBiBluetoothClient extends Activity {
           if(btService != null){
         	  btService.start();
         	  connectDevice();
-          }
+          }  
      }
  
      @Override
@@ -188,8 +241,36 @@ public class PixBiBluetoothClient extends Activity {
                  break;
              case MESSAGE_TOAST:
                  Toast.makeText(getApplicationContext(), msg.getData().getString(TOAST),
-                                Toast.LENGTH_SHORT).show();
+                                Toast.LENGTH_SHORT).show();                 
                  break;
+             case MESSAGE_SENSOR_DATA:
+            	 String[] strArray = (String[])msg.obj;
+            	 try{
+	            	// if(obj.length != 3) throw new Exception("Error MESSAGE_SENSOR_DATA: object length mismatch.");
+	            	// get rid the oldest sample in history:
+	            	if(RelHumiRecord.size() > HISTORY_SIZE){
+	            		TemperRecord.removeFirst();
+	            		RelHumiRecord.removeFirst();
+	            		LightRecord.removeFirst();
+	            	}
+					float temperVal = Float.valueOf(strArray[0]).floatValue();
+					float  RelHumiVal = Float.valueOf(strArray[1]).floatValue();
+					int lightVal = Integer.valueOf(strArray[2]).intValue();
+					
+	            	// add the latest history sample:
+	            	TemperRecord.addLast(temperVal);
+	            	RelHumiRecord.addLast(RelHumiVal);	        		
+	        		LightRecord.addLast(lightVal);
+	        	
+	        		seriesTemper.setModel(TemperRecord,SimpleXYSeries.ArrayFormat.Y_VALS_ONLY);
+	       	     	seriesRelHumi.setModel(RelHumiRecord,SimpleXYSeries.ArrayFormat.Y_VALS_ONLY);
+	       	     	seriesLight.setModel(LightRecord,SimpleXYSeries.ArrayFormat.Y_VALS_ONLY);
+	       	     	
+	       	     	mySimpleXYPlot.redraw();
+            	 }catch(Exception e){
+            		 Log.e(TAG, "mySimpleXYPlot update error : ", e);
+            	 }
+            	 break;
              }
          }
      };
