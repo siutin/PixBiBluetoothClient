@@ -1,9 +1,12 @@
 package com.example.pixbibluetooth;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
+import java.util.concurrent.LinkedBlockingQueue ;
+import java.util.concurrent.BlockingQueue;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -14,6 +17,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class BluetoothService {
     // Debugging
@@ -25,8 +30,9 @@ public class BluetoothService {
 	private final Handler mHandler;
     private ConnectThread mConnectThread;
     private ConnectedThread mConnectedThread;
-    
-    
+    private BufferThread bufferThread;
+	private BlockingQueue<String> bufferqueue;
+	
     // Constants that indicate the current connection state
     public static final int STATE_NONE = 0;       // we're doing nothing
     public static final int STATE_LISTEN = 1;     // now listening for incoming connections
@@ -63,6 +69,9 @@ public class BluetoothService {
         // Cancel any thread currently running a connection
         if (mConnectedThread != null) {mConnectedThread.cancel(); mConnectedThread = null;}
         
+        // Cancel any thread currently running a connection
+        if (bufferThread != null) {mConnectedThread = null;}
+        
         setState(STATE_LISTEN);
     }
 
@@ -85,7 +94,7 @@ public class BluetoothService {
     }
     public synchronized void connected(BluetoothSocket socket, BluetoothDevice	 device) {
     	Log.d(TAG,"Device Name: "+ device.getName());
-        Log.d(TAG, "++ connected to XBee!!! ++");
+        Log.d(TAG, "++ connected to BluetoothBee!!! ++");
 
         // Cancel the thread that completed the connection
         if (mConnectThread != null) {mConnectThread.cancel(); mConnectThread = null;}
@@ -93,6 +102,12 @@ public class BluetoothService {
         // Cancel any thread currently running a connection
         if (mConnectedThread != null) {mConnectedThread.cancel(); mConnectedThread = null;}
         
+    	bufferqueue = new LinkedBlockingQueue<String>();
+        
+    	
+    	bufferThread = new BufferThread();
+    	bufferThread.start();
+    	
         // Start the thread to manage the connection and perform transmissions
         mConnectedThread = new ConnectedThread(socket);
         mConnectedThread.start();
@@ -117,6 +132,10 @@ public class BluetoothService {
         if (mConnectedThread != null) {
             mConnectedThread.cancel();
             mConnectedThread = null;
+        }
+        
+        if (bufferThread != null){
+        	bufferThread = null;
         }
         
         setState(STATE_NONE);
@@ -231,6 +250,72 @@ public class BluetoothService {
             }
         }
     }
+    
+    private class BufferThread extends Thread{
+    	private StringBuilder sb = null;
+    	private Pattern pattern = null;
+    	private Matcher matcher = null;
+    	private String res;
+    	private InputStream inStream;
+    	private final String patternstr = "Temperature: %s C Relative Humidity: %s % Light Intensity: %s ";
+		public BufferThread(){    
+			sb = new StringBuilder();
+			pattern = Pattern.compile("T: (\\d{1,3}.\\d{1}) RH: (\\d{1,3}.\\d{1}) LI: (\\d{1,3}.\\d{1}) \\$");
+
+		}    	
+    	public void run(){
+            Log.i(TAG, "BEGIN mbufferThread");
+            setName("bufferThread");
+			matcher = pattern.matcher("T: 30.7 RH: 78.5 LI: 184 $T: 30.7 RH: 78.4 LI: 182 $T: 30.6 RH: 78.4 LI: 189 $T: 30.6 RH: 78.4 LI: 181 $T: 30.7 RH: 78.5 LI: 189 $T: 30.7 RH: 78.4 LI: 183 $");
+			Log.i(TAG, "matches :"+ matcher.matches());
+			Log.i(TAG, "groupcount :"+ matcher.groupCount());
+			Log.i(TAG, "find :"+ matcher.find()+":"+matcher.group(1));
+			Log.i(TAG, "find :"+ matcher.find()+":"+matcher.group(3));
+			Log.i(TAG, "groupcount :"+ matcher.groupCount());
+            byte[] buffer = new byte[1024];
+    		String buf="";
+    		int bytes;
+    		
+    		while(true){
+    			  
+					try {						
+						while(( buf = bufferqueue.take()) != null){
+							Log.i(TAG, "bufferqueue.take : "+ buf );
+							sb.append(buf);
+							Log.i(TAG, "sb : "+ sb );
+							matcher = pattern.matcher(sb);	
+							
+							//Log.i(TAG,"matcher.matches(): "+ matcher.matches());
+							if(matcher.find()){
+								if(matcher.groupCount() == 3){
+										
+									//res=String.format(patternstr,matcher.group(1),matcher.group(2),matcher.group(3));
+									res="Temperature: "+matcher.group(1)+" C Relative Humidity: "+matcher.group(2)+" % Light Intensity: "+matcher.group(3);
+									
+									inStream = new ByteArrayInputStream(res.getBytes()); 
+									bytes = inStream.read(buffer);
+									
+									mHandler.obtainMessage(PixBiBluetoothClient.MESSAGE_READ, bytes, -1, buffer).sendToTarget();
+	
+				                    String readMessage = new String(buffer,0,bytes);			                  			                 
+				                    
+				                    Log.i(TAG, "match read message: "+ readMessage );
+				                    sb = new StringBuilder();
+				                    
+								}
+							}	
+						}
+					} catch (InterruptedException e) {						
+						Log.e(TAG, "Erro Interrupt Eception", e);
+					}
+					catch (IOException e) {
+						Log.e(TAG, "Exception get result bytes", e);
+					}
+    		}
+    	}
+    	
+
+    }
     /**
      * This thread runs during a connection with a remote device.
      * It handles all incoming and outgoing transmissions.
@@ -247,7 +332,7 @@ public class BluetoothService {
             OutputStream tmpOut = null;
 
             // Get the BluetoothSocket input and output streams
-            try {
+            try {           
                 tmpIn = socket.getInputStream();
                 tmpOut = socket.getOutputStream();
             } catch (IOException e) {
@@ -268,11 +353,14 @@ public class BluetoothService {
                 try {
                     // Read from the InputStream
                     bytes = mmInStream.read(buffer);
-
+                    
                     // Send the obtained bytes to the UI Activity
-                    mHandler.obtainMessage(PixBiBluetoothClient.MESSAGE_READ, bytes, -1, buffer).sendToTarget();
+                    //mHandler.obtainMessage(PixBiBluetoothClient.MESSAGE_READ, bytes, -1, buffer).sendToTarget();
 
                     String readMessage = new String(buffer,0,bytes);
+                    
+                    bufferqueue.add(readMessage);
+                    
                     Log.i(TAG, "read message: "+ readMessage );
                     
                 } catch (IOException e) {
